@@ -2,10 +2,22 @@
 Yahoo Finance API
 """
 from __future__ import annotations
-
+import os
+import time
 import pandas as pd
 import yfinance as yf
+import socket
 
+def isOpen(ip, port):
+    """
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.connect((ip, int(port)))
+        s.shutdown(2)
+        return True
+    except:
+        return False
 
 class YahooDownloader:
     """Provides methods for retrieving daily stock data from
@@ -32,6 +44,9 @@ class YahooDownloader:
         self.start_date = start_date
         self.end_date = end_date
         self.ticker_list = ticker_list
+        self.cache_dir = "./cache/"
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
 
     def fetch_data(self, proxy=None) -> pd.DataFrame:
         """Fetches data from Yahoo API
@@ -45,11 +60,24 @@ class YahooDownloader:
             for the specified stock ticker
         """
         # Download and save the data in a pandas DataFrame:
+        if not isOpen("127.0.0.1", "9081"):
+            print(f"等待{proxy}代理服务器启动")
+            time.sleep(100)
+        if proxy is None and isOpen("127.0.0.1", "9081"):
+            proxy = "http://127.0.0.1:9081"
         data_df = pd.DataFrame()
         for tic in self.ticker_list:
-            temp_df = yf.download(
-                tic, start=self.start_date, end=self.end_date, proxy=proxy
-            )
+            # tic: 每个股票的名字
+            cache_file = os.path.join(self.cache_dir, f"{tic}_{self.start_date}_{self.end_date}.pkl")
+            if os.path.exists(cache_file):
+                print(f"缓存文件{cache_file}已存在，跳过下载")
+                temp_df = pd.read_pickle(cache_file)
+            else:
+                temp_df = yf.download(
+                    tic, start=self.start_date, end=self.end_date, proxy=proxy
+                )
+                # 保存到pickle文件
+                temp_df.to_pickle(cache_file)
             temp_df["tic"] = tic
             data_df = data_df.append(temp_df)
         # reset the index, we want to use numbers as index instead of dates
