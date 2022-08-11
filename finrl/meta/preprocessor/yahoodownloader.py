@@ -60,9 +60,9 @@ class YahooDownloader:
             for the specified stock ticker
         """
         # Download and save the data in a pandas DataFrame:
-        if not isOpen("127.0.0.1", "9081"):
-            print(f"等待{proxy}代理服务器启动")
-            time.sleep(100)
+        # if not isOpen("127.0.0.1", "9081"):
+        #     print(f"等待代理服务器启动")
+        #     time.sleep(100)
         if proxy is None and isOpen("127.0.0.1", "9081"):
             proxy = "http://127.0.0.1:9081"
         data_df = pd.DataFrame()

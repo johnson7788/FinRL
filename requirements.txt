@@ -8,7 +8,7 @@ gputil
 gym>=0.17
 jqdatasdk
 lz4
-#pyfolio
+#pyfolio, 安装这个，否则有bug，https://github.com/quantopian/pyfolio
 # plot
 matplotlib
 # data handling

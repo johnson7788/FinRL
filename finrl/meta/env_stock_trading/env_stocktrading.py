@@ -61,6 +61,7 @@ class StockTradingEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(self.state_space,)
         )
+        assert df.empty is False, f"传入的评估数据为空，请检查数据是否正确"
         self.data = self.df.loc[self.day, :]
         self.terminal = False
         self.make_plots = make_plots
