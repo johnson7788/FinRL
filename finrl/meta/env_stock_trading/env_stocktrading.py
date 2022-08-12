@@ -47,16 +47,16 @@ class StockTradingEnv(gym.Env):
     ):
         self.day = day
         self.df = df
-        self.stock_dim = stock_dim
-        self.hmax = hmax
-        self.num_stock_shares = num_stock_shares
-        self.initial_amount = initial_amount  # get the initial cash
-        self.buy_cost_pct = buy_cost_pct
-        self.sell_cost_pct = sell_cost_pct
+        self.stock_dim = stock_dim   #股票的数量
+        self.hmax = hmax  # int
+        self.num_stock_shares = num_stock_shares  #list, 现在每只股票的数量
+        self.initial_amount = initial_amount  # 初始本钱数量，int
+        self.buy_cost_pct = buy_cost_pct   #list, 每只股票买入和卖出时的手续费
+        self.sell_cost_pct = sell_cost_pct   #list, 每只股票买入和卖出时的手续费
         self.reward_scaling = reward_scaling
-        self.state_space = state_space
-        self.action_space = action_space
-        self.tech_indicator_list = tech_indicator_list
+        self.state_space = state_space   #状态空间大小261
+        self.action_space = action_space  #动作空间26
+        self.tech_indicator_list = tech_indicator_list   #['macd', 'boll_ub', 'boll_lb', 'rsi_30', 'cci_30', 'dx_30', 'close_30_sma', 'close_60_sma']
         self.action_space = spaces.Box(low=-1, high=1, shape=(self.action_space,))
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(self.state_space,)
@@ -64,14 +64,14 @@ class StockTradingEnv(gym.Env):
         assert df.empty is False, f"传入的评估数据为空，请检查数据是否正确"
         self.data = self.df.loc[self.day, :]
         self.terminal = False
-        self.make_plots = make_plots
+        self.make_plots = make_plots  # 是否绘图
         self.print_verbosity = print_verbosity
         self.turbulence_threshold = turbulence_threshold
         self.risk_indicator_col = risk_indicator_col
         self.initial = initial
-        self.previous_state = previous_state
-        self.model_name = model_name
-        self.mode = mode
+        self.previous_state = previous_state  #上一个状态，[]
+        self.model_name = model_name  #模型名称,str
+        self.mode = mode            # 模式，str
         self.iteration = iteration
         # initalize state
         self.state = self._initiate_state()
@@ -82,7 +82,7 @@ class StockTradingEnv(gym.Env):
         self.cost = 0
         self.trades = 0
         self.episode = 0
-        # memorize all the total balance change
+        # memorize all the total balance change， 现有资产价格，等于手头现金+手头股票数量*股票的闭市的价格
         self.asset_memory = [
             self.initial_amount
             + np.sum(

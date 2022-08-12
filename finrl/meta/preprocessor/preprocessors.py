@@ -85,7 +85,7 @@ class FeatureEngineer:
         # add technical indicators using stockstats
         if self.use_technical_indicator:
             df = self.add_technical_indicator(df)
-            print("Successfully added technical indicators")
+            print("成功的添加了技术指标")
 
         # add vix for multiple stock
         if self.use_vix:
@@ -115,9 +115,9 @@ class FeatureEngineer:
         :return: (df) pandas dataframe
         """
         df = data.copy()
-        df = df.sort_values(["date", "tic"], ignore_index=True)
+        df = df.sort_values(["date", "tic"], ignore_index=True)  #按日期和股票排序
         df.index = df.date.factorize()[0]
-        merged_closes = df.pivot_table(index="date", columns="tic", values="close")
+        merged_closes = df.pivot_table(index="date", columns="tic", values="close")  #聚合
         merged_closes = merged_closes.dropna(axis=1)
         tics = merged_closes.columns
         df = df[df.tic.isin(tics)]

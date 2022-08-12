@@ -17,6 +17,7 @@
 # * tensorflow
 # * pyfolio
 
+
 import pandas as pd
 import numpy as np
 import matplotlib
@@ -135,7 +136,7 @@ def setup_env(train):
     print(f"股票数量: {stock_dimension}, 状态空间: {state_space}")
 
     buy_cost_list = sell_cost_list = [0.001] * stock_dimension
-    num_stock_shares = [0] * stock_dimension
+    num_stock_shares = [0] * stock_dimension  #默认每只股票的数量
 
     env_kwargs = {
         "hmax": 100,
@@ -226,7 +227,7 @@ def td3(env_train):
     return trained_td3
 
 
-def sac(env_train, total_timesteps=1000):
+def sac(env_train, total_timesteps=30000):
     # ### Agent 5: SAC
     agent = DRLAgent(env=env_train)
     SAC_PARAMS = {
@@ -273,7 +274,7 @@ def trade_test_data(trained_model, trade, processed_full, env_kwargs):
     # env_trade, obs_trade = e_trade_gym.get_sb_env()
 
     print(f"测试数据:", trade.head())
-
+    # df_account_value: 每条天的资产价值
     df_account_value, df_actions = DRLAgent.DRL_prediction(
         model=trained_model,
         environment=e_trade_gym)
@@ -331,13 +332,13 @@ if __name__ == '__main__':
     TRAIN_END_DATE = '2020-05-31'
     TRADE_START_DATE = '2020-06-01'
     TRADE_END_DATE = '2021-05-31'
-    # data_train = download_data(TRAIN_START_DATE, TRADE_END_DATE)
-    # train_data, trade_data, processed_full = preprocess_data(data_train)
-    # env_train, env_kwargs = setup_env(train_data)
-    # trained_sac = sac(env_train)
-    # df_account_value = trade_test_data(trained_model=trained_sac, trade=trade_data, processed_full=processed_full, env_kwargs=env_kwargs)
+    data_train = download_data(TRAIN_START_DATE, TRADE_END_DATE)
+    train_data, trade_data, processed_full = preprocess_data(data_train)
+    env_train, env_kwargs = setup_env(train_data)
+    trained_sac = sac(env_train)
+    df_account_value = trade_test_data(trained_model=trained_sac, trade=trade_data, processed_full=processed_full, env_kwargs=env_kwargs)
     # 缓存df_account_value到本地
     df_account_value_pkl_file = "cache/df_account_value.pkl"
-    df_account_value = pd.read_pickle(df_account_value_pkl_file)
-    # df_account_value.to_pickle(df_account_value_pkl_file)
+    # df_account_value = pd.read_pickle(df_account_value_pkl_file)
+    df_account_value.to_pickle(df_account_value_pkl_file)
     backtest(df_account_value)
