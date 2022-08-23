@@ -120,7 +120,7 @@ class FeatureEngineer:
         merged_closes = df.pivot_table(index="date", columns="tic", values="close")  #聚合
         merged_closes = merged_closes.dropna(axis=1)
         tics = merged_closes.columns
-        df = df[df.tic.isin(tics)]
+        df_new = df[df.tic.isin(tics)]
         # df = data.copy()
         # list_ticker = df["tic"].unique().tolist()
         # only apply to daily level data, need to fix for minute level
@@ -131,7 +131,10 @@ class FeatureEngineer:
         # df_full = df_full[df_full['date'].isin(df['date'])]
         # df_full = df_full.sort_values(['date','tic'])
         # df_full = df_full.fillna(0)
-        return df
+        # 如果过滤掉了很多数据，说明有问题的
+        if len(df_new)<len(df):
+            print(f"过滤掉了很多数据，说明有问题的, 原数据形状是: {df.shape}, 过滤后的数据形状是: {df_new.shape}")
+        return df_new
 
     def add_technical_indicator(self, data):
         """

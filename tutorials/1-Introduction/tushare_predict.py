@@ -1,28 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# <a href="https://colab.research.google.com/github/AI4Finance-Foundation/FinRL/blob/master/Stock_NeurIPS2018.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-
-
-# 
-# <a id='1.2'></a>
-# ## 2.2. A list of Python packages 
-# * Yahoo Finance API
-# * pandas
-# * numpy
-# * matplotlib
-# * stockstats
-# * OpenAI gym
-# * stable-baselines
-# * tensorflow
-# * pyfolio
-
-
 import pandas as pd
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-# matplotlib.use('Agg')
 import datetime
 
 from finrl.meta.preprocessor.yahoodownloader import YahooDownloader
@@ -33,7 +15,7 @@ from finrl.meta.data_processor import DataProcessor
 
 from finrl.plot import backtest_stats, backtest_plot, get_daily_return, get_baseline
 from pprint import pprint
-
+from tushare_download import get_train_data
 import itertools
 from finrl import config
 from finrl import config_tickers
@@ -59,16 +41,17 @@ def prepare_dir():
 
 
 def download_data(TRAIN_START_DATE, TRADE_END_DATE):
-    df = YahooDownloader(start_date=TRAIN_START_DATE,
-                         end_date=TRADE_END_DATE,
-                         ticker_list=config_tickers.DOW_30_TICKER).fetch_data()
-
-    print(f"打印数据集信息, 数据形状是: {df.shape}")
-    print(config_tickers.DOW_30_TICKER)
-    # date        open        high  low close    volume   tic  day
-    # 2008-12-31   41.590000   43.049999  41.5 32.0   5443100.0    BA    2]
-    print(df.sort_values(['date', 'tic'], ignore_index=True).head())
-    return df
+    train_data = get_train_data(TRAIN_START_DATE, TRADE_END_DATE)
+    # 变成pandas的dataframe, 新加一个空的pandas，然后把所有数据添加进去
+    train_df = pd.DataFrame()
+    for value in train_data.values():
+        train_df = train_df.append(value)
+    print(f"打印数据集信息, 数据形状是: {train_df.shape}")
+    # 更改列名, ts_code --> tic, vol --> volume, trade_date ==>date
+    train_df.rename(columns={"ts_code": "tic", "vol": "volume", "trade_date": "date"}, inplace=True)
+    # 列名: Index(['date', 'open', 'high', 'low', 'close', 'volume', 'tic', 'day'], dtype='object')
+    print(train_df.sort_values(['date', 'tic'], ignore_index=True).head())
+    return train_df
 
 def preprocess_data(df):
     # Step4: 处理数据集
@@ -77,13 +60,14 @@ def preprocess_data(df):
     # * **增加动荡指数**。风险规避反映了投资者是否倾向于保护资本。它也影响了一个人在面对不同市场波动水平时的交易策略。为了控制最坏情况下的风险，如2007-2008年的金融危机，FinRL采用了衡量资产价格极端波动的动荡指数。
     print(f"开始处理数据集, 数据集的形状是: {df.shape}")
     fe = FeatureEngineer(
-                        use_technical_indicator=True,
+                        use_technical_indicator=False,
                         tech_indicator_list = INDICATORS,
-                        use_vix=True,
-                        use_turbulence=True,
+                        use_vix=False,
+                        use_turbulence=False,
                         user_defined_feature = False)
-
-    processed = fe.preprocess_data(df)
+    # 不进行数据处理了
+    # processed = fe.preprocess_data(df)
+    processed = df
 
 
     list_ticker = processed["tic"].unique().tolist()
@@ -132,7 +116,7 @@ def setup_env(train):
     -------
 
     """
-    stock_dimension = len(train.tic.unique())
+    stock_dimension = len(train.tic.unique())  #股票数量
     state_space = 1 + 2*stock_dimension + len(INDICATORS)*stock_dimension
     print(f"股票数量: {stock_dimension}, 状态空间: {state_space}")
 
@@ -329,10 +313,10 @@ def backtest(df_account_value):
 if __name__ == '__main__':
     prepare_dir()
     # Step3 下载数据集
-    TRAIN_START_DATE = '2009-01-01'
-    TRAIN_END_DATE = '2020-05-31'
-    TRADE_START_DATE = '2020-06-01'
-    TRADE_END_DATE = '2021-05-31'
+    TRAIN_START_DATE = '2010-01-01'
+    TRAIN_END_DATE = '2021-05-31'
+    TRADE_START_DATE = '2021-06-01'
+    TRADE_END_DATE = '2022-05-31'
     data_train = download_data(TRAIN_START_DATE, TRADE_END_DATE)
     train_data, trade_data, processed_full = preprocess_data(data_train)
     env_train, env_kwargs = setup_env(train_data)
