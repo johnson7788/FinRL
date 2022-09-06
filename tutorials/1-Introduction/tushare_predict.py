@@ -6,7 +6,8 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import datetime
-
+import time
+import pymysql
 from finrl.meta.preprocessor.yahoodownloader import YahooDownloader
 from finrl.meta.preprocessor.preprocessors import FeatureEngineer, data_split
 from finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv
@@ -15,7 +16,6 @@ from finrl.meta.data_processor import DataProcessor
 
 from finrl.plot import backtest_stats, backtest_plot, get_daily_return, get_baseline
 from pprint import pprint
-from tushare_download import get_train_data
 import itertools
 from finrl import config
 from finrl import config_tickers
@@ -34,24 +34,21 @@ from finrl.config import (
     TRADE_START_DATE,
     TRADE_END_DATE,
 )
+from data_download import get_daily_by_stock
 
 def prepare_dir():
     # 创建目录
     check_and_make_directories([DATA_SAVE_DIR, TRAINED_MODEL_DIR, TENSORBOARD_LOG_DIR, RESULTS_DIR])
 
-
 def download_data(TRAIN_START_DATE, TRADE_END_DATE):
-    train_data = get_train_data(TRAIN_START_DATE, TRADE_END_DATE)
+    stock_data = get_daily_by_stock(TRAIN_START_DATE, TRADE_END_DATE)
     # 变成pandas的dataframe, 新加一个空的pandas，然后把所有数据添加进去
-    train_df = pd.DataFrame()
-    for value in train_data.values():
-        train_df = train_df.append(value)
-    print(f"打印数据集信息, 数据形状是: {train_df.shape}")
     # 更改列名, ts_code --> tic, vol --> volume, trade_date ==>date
-    train_df.rename(columns={"ts_code": "tic", "vol": "volume", "trade_date": "date"}, inplace=True)
+    stock_data.rename(columns={"ts_code": "tic", "vol": "volume", "trade_date": "date"}, inplace=True)
     # 列名: Index(['date', 'open', 'high', 'low', 'close', 'volume', 'tic', 'day'], dtype='object')
-    print(train_df.sort_values(['date', 'tic'], ignore_index=True).head())
-    return train_df
+    print(f"数据示例：")
+    print(stock_data.sort_values(['date', 'tic'], ignore_index=True).head())
+    return stock_data
 
 def preprocess_data(df):
     # Step4: 处理数据集
@@ -59,18 +56,8 @@ def preprocess_data(df):
     # * **添加技术指标**。在实际交易中，需要考虑到各种信息，如历史价格、当前持有的股票、技术指标等。在此，我们演示两个趋势跟踪的技术指标。MACD和RSI。
     # * **增加动荡指数**。风险规避反映了投资者是否倾向于保护资本。它也影响了一个人在面对不同市场波动水平时的交易策略。为了控制最坏情况下的风险，如2007-2008年的金融危机，FinRL采用了衡量资产价格极端波动的动荡指数。
     print(f"开始处理数据集, 数据集的形状是: {df.shape}")
-    fe = FeatureEngineer(
-                        use_technical_indicator=False,
-                        tech_indicator_list = INDICATORS,
-                        use_vix=False,
-                        use_turbulence=False,
-                        user_defined_feature = False)
-    # 不进行数据处理了
-    # processed = fe.preprocess_data(df)
-    processed = df
-
-
-    list_ticker = processed["tic"].unique().tolist()
+    all_stock_names = df["tic"].unique().tolist()
+    #获取交易指标
     list_date = list(pd.date_range(processed['date'].min(),processed['date'].max()).astype(str))
     combination = list(itertools.product(list_date,list_ticker))
 
