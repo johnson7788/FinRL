@@ -62,7 +62,7 @@ class StockTradingEnv(gym.Env):
             low=-np.inf, high=np.inf, shape=(self.state_space,)
         )
         assert df.empty is False, f"传入的评估数据为空，请检查数据是否正确"
-        self.data = self.df.loc[self.day, :]
+        self.data = self.df.loc[self.day, :]  #第0天的数据，确保每一天都有相同的股票数量
         self.terminal = False
         self.make_plots = make_plots  # 是否绘图
         self.print_verbosity = print_verbosity
@@ -75,7 +75,7 @@ class StockTradingEnv(gym.Env):
         self.iteration = iteration
         # initalize state
         self.state = self._initiate_state()
-
+        assert len(self.state) == self.state_space, f"初始化后的状态和状态空间大小不一致，请检查, 很有可能是部分股票在第一天是没有的，那么就会造成不一致"
         # initialize reward
         self.reward = 0
         self.turbulence = 0
@@ -361,7 +361,7 @@ class StockTradingEnv(gym.Env):
         # initiate state
         self.state = self._initiate_state()
 
-        if self.initial:
+        if self.initial:  #计算下初始的资产价格，肯定是initial_amount的值，因为股票数量为0呢
             self.asset_memory = [
                 self.initial_amount
                 + np.sum(
@@ -413,6 +413,7 @@ class StockTradingEnv(gym.Env):
                         [],
                     )
                 )  # append initial stocks_share to initial state, instead of all zero
+                print(f"初始化的状态的维度是: {len(state)}")
             else:
                 # for single stock
                 state = (

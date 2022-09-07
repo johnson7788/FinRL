@@ -26,7 +26,6 @@ from finrl.config import (
     TRAINED_MODEL_DIR,
     TENSORBOARD_LOG_DIR,
     RESULTS_DIR,
-    INDICATORS,
     TRAIN_START_DATE,
     TRAIN_END_DATE,
     TEST_START_DATE,
@@ -34,14 +33,16 @@ from finrl.config import (
     TRADE_START_DATE,
     TRADE_END_DATE,
 )
-from data_download import get_daily_by_stock
+
+from data_download import get_daily_stock_and_indicator
+INDICATORS = ['open_hfq', 'open_qfq', 'close_hfq', 'close_qfq', 'high_hfq', 'high_qfq', 'low_hfq', 'low_qfq', 'pre_close_hfq', 'pre_close_qfq', 'macd_dif', 'macd_dea', 'macd', 'kdj_k', 'kdj_d', 'kdj_j', 'rsi_6', 'rsi_12', 'rsi_24', 'boll_upper', 'boll_mid', 'boll_lower', 'cci']
 
 def prepare_dir():
     # 创建目录
     check_and_make_directories([DATA_SAVE_DIR, TRAINED_MODEL_DIR, TENSORBOARD_LOG_DIR, RESULTS_DIR])
 
 def download_data(TRAIN_START_DATE, TRADE_END_DATE):
-    stock_data = get_daily_by_stock(TRAIN_START_DATE, TRADE_END_DATE)
+    stock_data = get_daily_stock_and_indicator(TRAIN_START_DATE, TRADE_END_DATE)
     # 变成pandas的dataframe, 新加一个空的pandas，然后把所有数据添加进去
     # 更改列名, ts_code --> tic, vol --> volume, trade_date ==>date
     stock_data.rename(columns={"ts_code": "tic", "vol": "volume", "trade_date": "date"}, inplace=True)
@@ -56,18 +57,7 @@ def preprocess_data(df):
     # * **添加技术指标**。在实际交易中，需要考虑到各种信息，如历史价格、当前持有的股票、技术指标等。在此，我们演示两个趋势跟踪的技术指标。MACD和RSI。
     # * **增加动荡指数**。风险规避反映了投资者是否倾向于保护资本。它也影响了一个人在面对不同市场波动水平时的交易策略。为了控制最坏情况下的风险，如2007-2008年的金融危机，FinRL采用了衡量资产价格极端波动的动荡指数。
     print(f"开始处理数据集, 数据集的形状是: {df.shape}")
-    all_stock_names = df["tic"].unique().tolist()
-    #获取交易指标
-    list_date = list(pd.date_range(processed['date'].min(),processed['date'].max()).astype(str))
-    combination = list(itertools.product(list_date,list_ticker))
-
-    processed_full = pd.DataFrame(combination,columns=["date","tic"]).merge(processed,on=["date","tic"],how="left")
-    processed_full = processed_full[processed_full['date'].isin(processed['date'])]
-    processed_full = processed_full.sort_values(['date','tic'])
-
-    processed_full = processed_full.fillna(0)
-
-    processed_full.sort_values(['date','tic'],ignore_index=True).head(10)
+    processed_full = df.sort_values(['date','tic'])
 
     #Step 5: 数据分割和在OpenAI Gym风格中建立一个市场环境
     # 训练过程包括观察股票价格变化，采取动作和奖励的计算。通过与市场环境的互动，agent最终会得出一个可能使（预期）回报最大化的交易策略。
@@ -122,12 +112,11 @@ def setup_env(train):
         "action_space": stock_dimension,
         "reward_scaling": 1e-4
     }
-
-
+    # 初始化训练环境
     e_train_gym = StockTradingEnv(df = train, **env_kwargs)
 
     # 训练环境
-
+    #
     env_train, _ = e_train_gym.get_sb_env()
     print(type(env_train))
     return env_train, env_kwargs
