@@ -79,7 +79,7 @@ class FeatureEngineer:
         @:param config: source dataframe
         @:return: a DataMatrices object
         """
-        # clean data
+        #清理数据
         df = self.clean_data(df)
 
         # add technical indicators using stockstats
@@ -116,11 +116,11 @@ class FeatureEngineer:
         """
         df = data.copy()
         df = df.sort_values(["date", "tic"], ignore_index=True)  #按日期和股票排序
-        df.index = df.date.factorize()[0]
-        merged_closes = df.pivot_table(index="date", columns="tic", values="close")  #聚合
-        merged_closes = merged_closes.dropna(axis=1)
-        tics = merged_closes.columns
-        df_new = df[df.tic.isin(tics)]
+        df.index = df.date.factorize()[0]  #根据日期，进行 one-hot 向量化， 然后重新设置index
+        merged_closes = df.pivot_table(index="date", columns="tic", values="close")  #聚合, 每只股票作为新的列名，日期作为新的索引，值是闭市的值
+        merged_closes = merged_closes.dropna(axis=1) # 删掉包含nan值的列，即有任何的股票，任意一天包含nan，那么就删掉这个股票, 原来有27只股票，删掉了DOW，现在还有26只
+        tics = merged_closes.columns #还剩下的股票
+        df_new = df[df.tic.isin(tics)]  # 只要剩下的股票
         # df = data.copy()
         # list_ticker = df["tic"].unique().tolist()
         # only apply to daily level data, need to fix for minute level
@@ -138,15 +138,15 @@ class FeatureEngineer:
 
     def add_technical_indicator(self, data):
         """
-        calculate technical indicators
+        计算技术指标
         use stockstats package to add technical inidactors
         :param data: (df) pandas dataframe
         :return: (df) pandas dataframe
         """
         df = data.copy()
-        df = df.sort_values(by=["tic", "date"])
+        df = df.sort_values(by=["tic", "date"])  # 按股票和日期排序
         stock = Sdf.retype(df.copy())
-        unique_ticker = stock.tic.unique()
+        unique_ticker = stock.tic.unique()  #现有股票的名称
 
         for indicator in self.tech_indicator_list:
             indicator_df = pd.DataFrame()
