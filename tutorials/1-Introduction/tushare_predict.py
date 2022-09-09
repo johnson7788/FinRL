@@ -217,21 +217,13 @@ def trade_test_data(trained_model, trade, processed_full, env_kwargs):
         (processed_full.date < TRAIN_END_DATE) & (processed_full.date >= TRAIN_START_DATE)]
     insample_risk_indicator = data_risk_indicator.drop_duplicates(subset=['date'])
 
-    insample_risk_indicator.vix.describe()
-
-    insample_risk_indicator.vix.quantile(0.996)
-
-    insample_risk_indicator.turbulence.describe()
-
-    insample_risk_indicator.turbulence.quantile(0.996)
-
     # ### Trading (Out-of-sample Performance)
     #
     # 我们定期更新，以便充分利用数据，例如，每季度、每月或每周重新训练。我们还沿途调整参数，在这个笔记本中，我们使用2009-01到2020-07的样本内数据来调整一次参数，所以随着交易日期长度的延长，这里有一些α衰减。
     #
     # 众多的超参数--例如学习率、训练的样本总数--影响学习过程，通常通过测试一些变化来确定。
 
-    e_trade_gym = StockTradingEnv(df=trade, turbulence_threshold=70, risk_indicator_col='vix', **env_kwargs)
+    e_trade_gym = StockTradingEnv(df=trade, **env_kwargs)
     # env_trade, obs_trade = e_trade_gym.get_sb_env()
 
     print(f"测试数据:", trade.head())
@@ -239,12 +231,10 @@ def trade_test_data(trained_model, trade, processed_full, env_kwargs):
     df_account_value, df_actions = DRLAgent.DRL_prediction(
         model=trained_model,
         environment=e_trade_gym)
-
     print(df_account_value.shape)
     print(df_account_value.tail())
     print(df_actions.head())
     return df_account_value
-
 
 def backtest(df_account_value):
     # # Step7: 回测结果
@@ -259,31 +249,6 @@ def backtest(df_account_value):
     perf_stats_all = backtest_stats(account_value=df_account_value)
     perf_stats_all = pd.DataFrame(perf_stats_all)
     perf_stats_all.to_csv("./" + RESULTS_DIR + "/perf_stats_all_" + now + '.csv')
-
-    # baseline stats
-    print("==============获取基线状态===========")
-    baseline_df = get_baseline(
-        ticker="^DJI",
-        start=df_account_value.loc[0, 'date'],
-        end=df_account_value.loc[len(df_account_value) - 1, 'date'])
-
-    stats = backtest_stats(baseline_df, value_col_name='close')
-
-    print(df_account_value.loc[0, 'date'])
-    print(df_account_value.loc[len(df_account_value) - 1, 'date'])
-    # ## 7.2 BackTestPlot
-
-    print("==============对比道琼斯工业平均指数， 回测绘图===========")
-    # S&P 500: ^GSPC
-    # Dow Jones Index: ^DJI
-    # NASDAQ 100: ^NDX
-    start_date = df_account_value.loc[0, 'date']  #eg:'2020-06-01'
-    end_date = df_account_value.loc[len(df_account_value) - 1, 'date'] # eg:'2020-06-30'
-    backtest_plot(df_account_value,
-                  baseline_ticker='^DJI',
-                  baseline_start=start_date,
-                  baseline_end=end_date
-                  )
 
 
 if __name__ == '__main__':
