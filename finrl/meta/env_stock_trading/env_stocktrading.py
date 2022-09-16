@@ -48,7 +48,7 @@ class StockTradingEnv(gym.Env):
         self.day = day
         self.df = df
         self.stock_dim = stock_dim   #股票的数量
-        self.hmax = hmax  # int
+        self.hmax = hmax  # int, 买的股票，国内市场最少是100，就是1手，我们可以设置大一点
         self.num_stock_shares = num_stock_shares  #list, 现在每只股票的数量
         self.initial_amount = initial_amount  # 初始本钱数量，int
         self.buy_cost_pct = buy_cost_pct   #list, 每只股票买入和卖出时的手续费
@@ -305,8 +305,8 @@ class StockTradingEnv(gym.Env):
             actions = actions * self.hmax  # actions initially is scaled between 0 to 1
             actions = actions.astype(
                 int
-            )  # convert into integer because we can't by fraction of shares
-            if self.turbulence_threshold is not None:
+            )  # 转换成整数，因为我们不能买带有小数的股票数量
+            if self.turbulence_threshold is not None:  #扰动过大时，卖出所有股票
                 if self.turbulence >= self.turbulence_threshold:
                     actions = np.array([-self.hmax] * self.stock_dim)
             begin_total_asset = self.state[0] + sum(

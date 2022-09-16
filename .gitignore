@@ -148,3 +148,4 @@ alpaca_processor_test.py
 /finrl/config_private.py
 tutorials/1-Introduction/cache/
 tutorials/1-Introduction/token_file.py
+*.log

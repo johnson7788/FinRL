@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
-
+import sys
+import logging
 import pandas as pd
 import numpy as np
 import matplotlib
@@ -8,6 +9,7 @@ import matplotlib.pyplot as plt
 import datetime
 import time
 import pymysql
+import argparse
 from finrl.meta.preprocessor.yahoodownloader import YahooDownloader
 from finrl.meta.preprocessor.preprocessors import FeatureEngineer, data_split
 from finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv
@@ -34,8 +36,17 @@ from finrl.config import (
     TRADE_END_DATE,
 )
 
-from data_download import get_daily_stock_and_indicator
-INDICATORS = ['open_hfq', 'open_qfq', 'close_hfq', 'close_qfq', 'high_hfq', 'high_qfq', 'low_hfq', 'low_qfq', 'pre_close_hfq', 'pre_close_qfq', 'macd_dif', 'macd_dea', 'macd', 'kdj_k', 'kdj_d', 'kdj_j', 'rsi_6', 'rsi_12', 'rsi_24', 'boll_upper', 'boll_mid', 'boll_lower', 'cci']
+logfile = "predict.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - [%(levelname)s] - %(module)s - %(funcName)s - %(message)s",
+    handlers=[
+        logging.FileHandler(logfile, mode='w', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+
+from data_download import get_daily_stock_and_indicator, INDICATORS
 
 def prepare_dir():
     # 创建目录
@@ -101,12 +112,13 @@ def setup_env(train):
     num_stock_shares = [0] * stock_dimension  #默认每只股票的数量
 
     env_kwargs = {
-        "hmax": 100,
+        "hmax": 1500,  #1000表示，买10手股票
         "initial_amount": 1000000,
         "num_stock_shares": num_stock_shares,
         "buy_cost_pct": buy_cost_list,
         "sell_cost_pct": sell_cost_list,
         "state_space": state_space,
+        "make_plots": True,
         "stock_dim": stock_dimension,
         "tech_indicator_list": INDICATORS,
         "action_space": stock_dimension,
@@ -252,17 +264,52 @@ def backtest(df_account_value):
 
 
 if __name__ == '__main__':
-    prepare_dir()
+    parser = argparse.ArgumentParser(description="强化学习预测")
+    parser.add_argument('-m', '--model', type=str, default="sac",choices=("sac","ppo","a2c","ddpg","td3") ,help='使用哪个模型进行训练')
+    parser.add_argument('-st', '--start_train', default='2010-01-01', help='训练的开始时间')
+    parser.add_argument('-et', '--end_train', default='2020-05-31', help='训练的结束时间')
+    parser.add_argument('-se', '--start_test', default='2020-06-01', help='测试的开始时间')
+    parser.add_argument('-ee', '--end_test', default='2022-05-31', help='测试的结束时间')
+    args = parser.parse_args()
     # Step3 下载数据集
-    TRAIN_START_DATE = '2010-01-01'
-    TRAIN_END_DATE = '2021-05-31'
-    TRADE_START_DATE = '2021-06-01'
-    TRADE_END_DATE = '2022-05-31'
+    TRAIN_START_DATE = args.start_train
+    TRAIN_END_DATE = args.end_train
+    TRADE_START_DATE = args.start_test
+    TRADE_END_DATE = args.end_test
+    model = args.model
+    prepare_dir()
+    print(f"训练日期是: {TRAIN_START_DATE} 到 {TRAIN_END_DATE}, 预测日期是: {TRADE_START_DATE} 到 {TRADE_END_DATE}")
+    print(f"使用的模型是: {model}")
     data_train = download_data(TRAIN_START_DATE, TRADE_END_DATE)
     train_data, trade_data, processed_full = preprocess_data(data_train)
     env_train, env_kwargs = setup_env(train_data)
-    trained_sac = sac(env_train)
-    df_account_value = trade_test_data(trained_model=trained_sac, trade=trade_data, processed_full=processed_full, env_kwargs=env_kwargs)
+    if model == "sac":
+        trained_model = sac(env_train)
+    elif model =="td3":
+        trained_model = td3(env_train)
+    elif model =="ppo":
+        trained_model = ppo(env_train)
+    elif model =="a2c":
+        trained_model = a2c(env_train)
+    elif model =="ddpg":
+        trained_model = ddpg(env_train)
+    elif model == "all":
+        for model_name in ["sac","td3","ppo","a2c","ddpg"]:
+            print(f"使用的模型是: {model_name}")
+            model_func = eval(model_name)
+            trained_model = model_func(env_train)
+            df_account_value = trade_test_data(trained_model=trained_model, trade=trade_data,
+                                               processed_full=processed_full, env_kwargs=env_kwargs)
+            # 缓存df_account_value到本地
+            df_account_value_pkl_file = "cache/df_account_value.pkl"
+            # df_account_value = pd.read_pickle(df_account_value_pkl_file)
+            df_account_value.to_pickle(df_account_value_pkl_file)
+            backtest(df_account_value)
+        print(f"结束所有模型的训练学习")
+        sys.exit(0)
+    else:
+        print(f"不支持的模型,退出")
+    df_account_value = trade_test_data(trained_model=trained_model, trade=trade_data, processed_full=processed_full, env_kwargs=env_kwargs)
     # 缓存df_account_value到本地
     df_account_value_pkl_file = "cache/df_account_value.pkl"
     # df_account_value = pd.read_pickle(df_account_value_pkl_file)
