@@ -246,9 +246,9 @@ def trade_test_data(trained_model, trade, processed_full, env_kwargs):
     print(df_account_value.shape)
     print(df_account_value.tail())
     print(df_actions.head())
-    return df_account_value
+    return df_account_value, df_actions
 
-def backtest(df_account_value):
+def backtest(df_account_value, result_file):
     # # Step7: 回测结果
     # 回溯测试在评估交易策略的表现方面起着关键作用。自动回测工具是首选，因为它减少了人为错误。我们通常使用Quantopian pyfolio软件包来回测我们的交易策略。它很容易使用，由各种单独的图组成，提供了交易策略表现的全面图像。
 
@@ -256,16 +256,16 @@ def backtest(df_account_value):
     # 传入df_account_value，该信息存储在env类中。
 
     print("==============获取回测结果===========")
-    now = datetime.datetime.now().strftime('%Y%m%d-%Hh%M')
 
     perf_stats_all = backtest_stats(account_value=df_account_value)
     perf_stats_all = pd.DataFrame(perf_stats_all)
-    perf_stats_all.to_csv("./" + RESULTS_DIR + "/perf_stats_all_" + now + '.csv')
+    perf_stats_all.to_excel(result_file, index=False)
+    print(f"保存回测结果到: {result_file}")
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="强化学习预测")
-    parser.add_argument('-m', '--model', type=str, default="sac",choices=("sac","ppo","a2c","ddpg","td3") ,help='使用哪个模型进行训练')
+    parser.add_argument('-m', '--model', type=str, default="sac",choices=("sac","ppo","a2c","ddpg","td3","all") ,help='使用哪个模型进行训练')
     parser.add_argument('-st', '--start_train', default='2010-01-01', help='训练的开始时间')
     parser.add_argument('-et', '--end_train', default='2020-05-31', help='训练的结束时间')
     parser.add_argument('-se', '--start_test', default='2020-06-01', help='测试的开始时间')
@@ -298,20 +298,26 @@ if __name__ == '__main__':
             print(f"使用的模型是: {model_name}")
             model_func = eval(model_name)
             trained_model = model_func(env_train)
-            df_account_value = trade_test_data(trained_model=trained_model, trade=trade_data,
+            df_account_value, df_actions = trade_test_data(trained_model=trained_model, trade=trade_data,
                                                processed_full=processed_full, env_kwargs=env_kwargs)
+            now = datetime.datetime.now().strftime('%Y%m%d-%Hh%M')
+            trade_action_file = f"action_{model_name}_{now}.xlsx"
+            df_actions.to_excel(trade_action_file, index=False)
             # 缓存df_account_value到本地
             df_account_value_pkl_file = "cache/df_account_value.pkl"
-            # df_account_value = pd.read_pickle(df_account_value_pkl_file)
             df_account_value.to_pickle(df_account_value_pkl_file)
-            backtest(df_account_value)
+            csv_file = f"backtest_{model_name}_{now}.xlsx'"
+            backtest(df_account_value, result_file=csv_file)
         print(f"结束所有模型的训练学习")
         sys.exit(0)
     else:
         print(f"不支持的模型,退出")
-    df_account_value = trade_test_data(trained_model=trained_model, trade=trade_data, processed_full=processed_full, env_kwargs=env_kwargs)
+    df_account_value, df_actions = trade_test_data(trained_model=trained_model, trade=trade_data, processed_full=processed_full, env_kwargs=env_kwargs)
     # 缓存df_account_value到本地
+    now = datetime.datetime.now().strftime('%Y%m%d-%Hh%M')
+    trade_action_file = f"action_{model}_{now}.xlsx"
+    df_actions.to_excel(trade_action_file, index=False)
     df_account_value_pkl_file = "cache/df_account_value.pkl"
-    # df_account_value = pd.read_pickle(df_account_value_pkl_file)
     df_account_value.to_pickle(df_account_value_pkl_file)
-    backtest(df_account_value)
+    csv_file = f"backtest_{model}_{now}.xlsx'"
+    backtest(df_account_value, result_file=csv_file)
