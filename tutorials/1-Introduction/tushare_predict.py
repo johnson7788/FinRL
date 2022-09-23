@@ -112,7 +112,7 @@ def setup_env(train):
     num_stock_shares = [0] * stock_dimension  #默认每只股票的数量
 
     env_kwargs = {
-        "hmax": 1500,  #1000表示，买10手股票
+        "hmax": 2000,  #1000表示，买10手股票
         "initial_amount": 1000000,
         "num_stock_shares": num_stock_shares,
         "buy_cost_pct": buy_cost_list,
@@ -306,7 +306,7 @@ if __name__ == '__main__':
             # 缓存df_account_value到本地
             df_account_value_pkl_file = "cache/df_account_value.pkl"
             df_account_value.to_pickle(df_account_value_pkl_file)
-            csv_file = f"backtest_{model_name}_{now}.xlsx'"
+            csv_file = f"backtest_{model_name}_{now}.xlsx"
             backtest(df_account_value, result_file=csv_file)
         print(f"结束所有模型的训练学习")
         sys.exit(0)
@@ -319,5 +319,5 @@ if __name__ == '__main__':
     df_actions.to_excel(trade_action_file, index=False)
     df_account_value_pkl_file = "cache/df_account_value.pkl"
     df_account_value.to_pickle(df_account_value_pkl_file)
-    csv_file = f"backtest_{model}_{now}.xlsx'"
+    csv_file = f"backtest_{model}_{now}.xlsx"
     backtest(df_account_value, result_file=csv_file)

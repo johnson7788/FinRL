@@ -45,6 +45,7 @@ class StockTradingEnv(gym.Env):
         mode="",
         iteration="",
     ):
+        self.hmin = 100 # 最少买卖多少股
         self.day = day
         self.df = df
         self.stock_dim = stock_dim   #股票的数量
@@ -303,9 +304,11 @@ class StockTradingEnv(gym.Env):
 
         else:
             actions = actions * self.hmax  # actions initially is scaled between 0 to 1
-            actions = actions.astype(
-                int
-            )  # 转换成整数，因为我们不能买带有小数的股票数量
+            actions = actions.astype(int)  # 转换成整数，因为我们不能买带有小数的股票数量
+            actions = actions/self.hmin  #不是100的整数的，也有弄成100的整数
+            actions = actions.astype(int)
+            actions = actions * self.hmin
+            actions[actions < self.hmin] = self.hmin  # 更改actions的最小值
             if self.turbulence_threshold is not None:  #扰动过大时，卖出所有股票
                 if self.turbulence >= self.turbulence_threshold:
                     actions = np.array([-self.hmax] * self.stock_dim)
