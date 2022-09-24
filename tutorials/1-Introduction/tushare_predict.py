@@ -52,8 +52,8 @@ def prepare_dir():
     # 创建目录
     check_and_make_directories([DATA_SAVE_DIR, TRAINED_MODEL_DIR, TENSORBOARD_LOG_DIR, RESULTS_DIR])
 
-def download_data(TRAIN_START_DATE, TRADE_END_DATE):
-    stock_data = get_daily_stock_and_indicator(TRAIN_START_DATE, TRADE_END_DATE)
+def download_data(TRAIN_START_DATE, TRADE_END_DATE, mini=False):
+    stock_data = get_daily_stock_and_indicator(TRAIN_START_DATE, TRADE_END_DATE, mini=mini)
     # 变成pandas的dataframe, 新加一个空的pandas，然后把所有数据添加进去
     # 更改列名, ts_code --> tic, vol --> volume, trade_date ==>date
     stock_data.rename(columns={"ts_code": "tic", "vol": "volume", "trade_date": "date"}, inplace=True)
@@ -141,33 +141,33 @@ def setup_env(train):
 # ### 包括： 5 algorithms (A2C, DDPG, PPO, TD3, SAC)
 
 # ### Agent 1: A2C
-def a2c(env_train):
+def a2c(env_train, total_timesteps):
     agent = DRLAgent(env=env_train)
     model_a2c = agent.get_model("a2c")
 
     trained_a2c = agent.train_model(model=model_a2c,
                                     tb_log_name='a2c',
-                                    total_timesteps=50000)
+                                    total_timesteps=total_timesteps)
     return trained_a2c
 
 
 # ### Agent 2: DDPG
 
 
-def ddpg(env_train):
+def ddpg(env_train, total_timesteps):
     agent = DRLAgent(env=env_train)
     model_ddpg = agent.get_model("ddpg")
 
     trained_ddpg = agent.train_model(model=model_ddpg,
                                      tb_log_name='ddpg',
-                                     total_timesteps=50000)
+                                     total_timesteps=total_timesteps)
     return trained_ddpg
 
 
 # ### Agent 3: PPO
 
 
-def ppo(env_train):
+def ppo(env_train, total_timesteps):
     agent = DRLAgent(env=env_train)
     PPO_PARAMS = {
         "n_steps": 2048,
@@ -179,13 +179,13 @@ def ppo(env_train):
 
     trained_ppo = agent.train_model(model=model_ppo,
                                     tb_log_name='ppo',
-                                    total_timesteps=50000)
+                                    total_timesteps=total_timesteps)
     return trained_ppo
 
 
 # ### Agent 4: TD3
 
-def td3(env_train):
+def td3(env_train, total_timesteps):
     agent = DRLAgent(env = env_train)
     TD3_PARAMS = {"batch_size": 100,
                   "buffer_size": 1000000,
@@ -196,7 +196,7 @@ def td3(env_train):
 
     trained_td3 = agent.train_model(model=model_td3,
                                  tb_log_name='td3',
-                                 total_timesteps=30000)
+                                 total_timesteps=total_timesteps)
     return trained_td3
 
 
@@ -270,6 +270,8 @@ if __name__ == '__main__':
     parser.add_argument('-et', '--end_train', default='2020-05-31', help='训练的结束时间')
     parser.add_argument('-se', '--start_test', default='2020-06-01', help='测试的开始时间')
     parser.add_argument('-ee', '--end_test', default='2022-05-31', help='测试的结束时间')
+    parser.add_argument('-t', '--timesteps', default=200000, help='训练的时间步')
+    parser.add_argument('-mi', '--mini', action='store_true', help='迷你数据集')
     args = parser.parse_args()
     # Step3 下载数据集
     TRAIN_START_DATE = args.start_train
@@ -280,24 +282,24 @@ if __name__ == '__main__':
     prepare_dir()
     print(f"训练日期是: {TRAIN_START_DATE} 到 {TRAIN_END_DATE}, 预测日期是: {TRADE_START_DATE} 到 {TRADE_END_DATE}")
     print(f"使用的模型是: {model}")
-    data_train = download_data(TRAIN_START_DATE, TRADE_END_DATE)
+    data_train = download_data(TRAIN_START_DATE, TRADE_END_DATE, mini=args.mini)
     train_data, trade_data, processed_full = preprocess_data(data_train)
     env_train, env_kwargs = setup_env(train_data)
     if model == "sac":
-        trained_model = sac(env_train)
+        trained_model = sac(env_train, total_timesteps=args.timesteps)
     elif model =="td3":
-        trained_model = td3(env_train)
+        trained_model = td3(env_train, total_timesteps=args.timesteps)
     elif model =="ppo":
-        trained_model = ppo(env_train)
+        trained_model = ppo(env_train, total_timesteps=args.timesteps)
     elif model =="a2c":
-        trained_model = a2c(env_train)
+        trained_model = a2c(env_train, total_timesteps=args.timesteps)
     elif model =="ddpg":
-        trained_model = ddpg(env_train)
+        trained_model = ddpg(env_train, total_timesteps=args.timesteps)
     elif model == "all":
         for model_name in ["sac","td3","ppo","a2c","ddpg"]:
             print(f"使用的模型是: {model_name}")
             model_func = eval(model_name)
-            trained_model = model_func(env_train)
+            trained_model = model_func(env_train, total_timesteps=args.timesteps)
             df_account_value, df_actions = trade_test_data(trained_model=trained_model, trade=trade_data,
                                                processed_full=processed_full, env_kwargs=env_kwargs)
             now = datetime.datetime.now().strftime('%Y%m%d-%Hh%M')

@@ -58,7 +58,7 @@ class StockTradingEnv(gym.Env):
         self.state_space = state_space   #状态空间大小261
         self.action_space = action_space  #动作空间26
         self.tech_indicator_list = tech_indicator_list   #['macd', 'boll_ub', 'boll_lb', 'rsi_30', 'cci_30', 'dx_30', 'close_30_sma', 'close_60_sma']
-        self.action_space = spaces.Box(low=-1, high=1, shape=(self.action_space,))
+        self.action_space = spaces.Box(low=-hmax, high=hmax, shape=(self.action_space,))
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(self.state_space,)
         )
@@ -303,12 +303,12 @@ class StockTradingEnv(gym.Env):
             return self.state, self.reward, self.terminal, {}
 
         else:
-            actions = actions * self.hmax  # actions initially is scaled between 0 to 1
+            # actions = actions * self.hmax  # actions initially is scaled between 0 to 1
             actions = actions.astype(int)  # 转换成整数，因为我们不能买带有小数的股票数量
-            actions = actions/self.hmin  #不是100的整数的，也有弄成100的整数
-            actions = actions.astype(int)
-            actions = actions * self.hmin
-            actions[actions < self.hmin] = self.hmin  # 更改actions的最小值
+            # actions = actions/self.hmin  #不是100的整数的，也有弄成100的整数
+            # actions = actions.astype(int)
+            # actions = actions * self.hmin
+            # actions[actions < self.hmin] = self.hmin  # 更改actions的最小值
             if self.turbulence_threshold is not None:  #扰动过大时，卖出所有股票
                 if self.turbulence >= self.turbulence_threshold:
                     actions = np.array([-self.hmax] * self.stock_dim)
