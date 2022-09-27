@@ -8,6 +8,7 @@
 # Tutorials to use OpenAI DRL to trade multiple stocks using ensemble strategy in one Jupyter Notebook | Presented at ICAIF 2020
 # 
 # * This notebook is the reimplementation of our paper: Deep Reinforcement Learning for Automated Stock Trading: An Ensemble Strategy, using FinRL.
+# 一种组合策略
 # * Check out medium blog for detailed explanations: https://medium.com/@ai4finance/deep-reinforcement-learning-for-automated-stock-trading-f1dad0126a02
 # * Please report any issues to our Github: https://github.com/AI4Finance-LLC/FinRL-Library/issues
 # * **Pytorch Version** 

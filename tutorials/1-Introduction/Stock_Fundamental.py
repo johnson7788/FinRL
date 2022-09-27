@@ -39,7 +39,6 @@
 #     * [7.3. Baseline Stats](#6.3)   
 #     * [7.3. Compare to Stock Market Index](#6.4)             
 
-# <a id='0'></a>
 # # Part 1. Task Description
 
 # 我们训练一个用于股票交易的DRLagent。该任务被建模为马尔科夫决策过程（MDP），目标函数是最大化（预期）累积回报。
@@ -64,18 +63,9 @@
 
 # <a id='1.1'></a>
 # ## 2.1. Install all the packages through FinRL library
-# 
+#
 
-# In[1]:
-
-
-## install finrl library
-# get_ipython().system('pip install git+https://github.com/AI4Finance-Foundation/FinRL.git')
-
-
-# 
-# <a id='1.2'></a>
-# ## 2.2. A List of Python Packages
+# ## 2.2. 依赖包
 # * Yahoo Finance API
 # * pandas
 # * numpy
@@ -118,8 +108,6 @@ import itertools
 # <a id='1.4'></a>
 # ## 2.4. Create Folders
 
-# In[3]:
-
 
 import os
 if not os.path.exists("./" + config.DATA_SAVE_DIR):
@@ -133,7 +121,7 @@ if not os.path.exists("./" + config.RESULTS_DIR):
 
 
 # <a id='2'></a>
-# # Part 3. Download Stock Data from Yahoo Finance
+# # Part 3. 下载数据
 # Yahoo Finance provides stock data, financial news, financial reports, etc. Yahoo Finance is free.
 # * FinRL uses a class **YahooDownloader** in FinRL-Meta to fetch data via Yahoo Finance API
 # * Call Limit: Using the Public API (without authentication), you are limited to 2,000 requests per hour per IP (or up to a total of 48,000 requests a day).
@@ -164,24 +152,19 @@ if not os.path.exists("./" + config.RESULTS_DIR):
 print(config_tickers.DOW_30_TICKER)
 
 
-# In[5]:
-
-
 df = YahooDownloader(start_date = '2016-01-01',
                      end_date = '2021-01-01',
                      ticker_list = config_tickers.DOW_30_TICKER).fetch_data()
 
 
-# In[6]:
+
+print(f"下载后数据的形状是: {df.shape}")
 
 
-df.shape
 
 
-# In[7]:
 
-
-df.head()
+print(f"数据的前行是: {df.head()}")
 
 
 # In[8]:
@@ -208,22 +191,18 @@ df.sort_values(['date','tic'],ignore_index=True).head()
 
 
 # Import fundamental data from my GitHub repository
-url = 'https://raw.githubusercontent.com/mariko-sawada/FinRL_with_fundamental_data/main/dow_30_fundamental_wrds.csv'
-
+# url = 'https://raw.githubusercontent.com/mariko-sawada/FinRL_with_fundamental_data/main/dow_30_fundamental_wrds.csv'
+url = "cache/dow_30_fundamental_wrds.csv"
 fund = pd.read_csv(url)
 
 
-# In[11]:
-
-
-# Check the imported dataset
-fund.head()
+#股票的基本面数据信息
+print(fund.head())
 
 
 # ## 4.2 Specify items needed to calculate financial ratios
 # - To learn more about the data description of the dataset, please check WRDS's website(https://wrds-www.wharton.upenn.edu/). Login will be required.
 
-# In[12]:
 
 
 # List items that are used to calculate financial ratios
@@ -234,7 +213,7 @@ items = [
     'oiadpq', # Quarterly operating income
     'revtq', # Quartely revenue
     'niq', # Quartely net income
-    'atq', # Total asset
+    'atq', # 总资产
     'teqq', # Shareholder's equity
     'epspiy', # EPS(Basic) incl. Extraordinary items
     'ceqq', # Common Equity
@@ -252,11 +231,11 @@ items = [
     'ltq' # Liabilities   
 ]
 
-# Omit items that will not be used
+#只需要部分列的内容即可
 fund_data = fund[items]
 
 
-# In[13]:
+
 
 
 # Rename column names for the sake of readability
@@ -284,18 +263,18 @@ fund_data = fund_data.rename(columns={
 })
 
 
-# In[14]:
+
 
 
 # Check the data
-fund_data.head()
+print(f"重新检查下数据: {fund_data.head()}")
 
 
-# ## 4.3 Calculate financial ratios
+# ## 4.3 计算财务指标
 # - For items from Profit/Loss statements, we calculate LTM (Last Twelve Months) and use them to derive profitability related ratios such as Operating Maring and ROE. For items from balance sheets, we use the numbers on the day.
 # - To check the definitions of the financial ratios calculated here, please refer to CFI's website: https://corporatefinanceinstitute.com/resources/knowledge/finance/financial-ratios/
 
-# In[15]:
+
 
 
 # Calculate financial ratios
@@ -314,7 +293,7 @@ for i in range(0, fund_data.shape[0]):
     else:
         OPM.iloc[i] = np.sum(fund_data['op_inc_q'].iloc[i-3:i])/np.sum(fund_data['rev_q'].iloc[i-3:i])
 
-# Net Profit Margin        
+# Net Profit Margin        纯利润率
 NPM = pd.Series(np.empty(fund_data.shape[0],dtype=object),name='NPM')
 for i in range(0, fund_data.shape[0]):
     if i-3 < 0:
@@ -361,12 +340,12 @@ cur_ratio = (fund_data['cur_assets']/fund_data['cur_liabilities']).to_frame('cur
 # Quick ratio
 quick_ratio = ((fund_data['cash_eq'] + fund_data['receivables'] )/fund_data['cur_liabilities']).to_frame('quick_ratio')
 
-# Cash ratio
+# 现金比率
 cash_ratio = (fund_data['cash_eq']/fund_data['cur_liabilities']).to_frame('cash_ratio')
 
 
 # Efficiency ratios
-# Inventory turnover ratio
+# Inventory turnover ratio 库存周转率
 inv_turnover = pd.Series(np.empty(fund_data.shape[0],dtype=object),name='inv_turnover')
 for i in range(0, fund_data.shape[0]):
     if i-3 < 0:
@@ -376,7 +355,7 @@ for i in range(0, fund_data.shape[0]):
     else:
         inv_turnover.iloc[i] = np.sum(fund_data['cogs_q'].iloc[i-3:i])/fund_data['inventories'].iloc[i]
 
-# Receivables turnover ratio       
+# 应收账款周转率
 acc_rec_turnover = pd.Series(np.empty(fund_data.shape[0],dtype=object),name='acc_rec_turnover')
 for i in range(0, fund_data.shape[0]):
     if i-3 < 0:
@@ -386,7 +365,7 @@ for i in range(0, fund_data.shape[0]):
     else:
         acc_rec_turnover.iloc[i] = np.sum(fund_data['rev_q'].iloc[i-3:i])/fund_data['receivables'].iloc[i]
 
-# Payable turnover ratio
+# 应付账款周转率
 acc_pay_turnover = pd.Series(np.empty(fund_data.shape[0],dtype=object),name='acc_pay_turnover')
 for i in range(0, fund_data.shape[0]):
     if i-3 < 0:
@@ -396,15 +375,15 @@ for i in range(0, fund_data.shape[0]):
     else:
         acc_pay_turnover.iloc[i] = np.sum(fund_data['cogs_q'].iloc[i-3:i])/fund_data['payables'].iloc[i]
         
-## Leverage financial ratios
-# Debt ratio
+## 资金杠杆率
+# 负债比率
 debt_ratio = (fund_data['tot_liabilities']/fund_data['tot_assets']).to_frame('debt_ratio')
 
 # Debt to Equity ratio
 debt_to_equity = (fund_data['tot_liabilities']/fund_data['sh_equity']).to_frame('debt_to_equity')
 
 
-# In[16]:
+
 
 
 # Create a dataframe that merges all the ratios
@@ -413,48 +392,48 @@ ratios = pd.concat([date,tic,OPM,NPM,ROA,ROE,EPS,BPS,DPS,
                    debt_ratio,debt_to_equity], axis=1)
 
 
-# In[17]:
+
 
 
 # Check the ratio data
-ratios.head()
+print(f"添加各种比率后的数据集: {ratios.head()}")
 
 
-# In[18]:
 
 
-ratios.tail()
+
+print(ratios.tail())
 
 
-# ## 4.4 Deal with NAs and infinite values
+# ## 4.4 处理空值N/A 和 0的无限值
 # - We replace N/A and infinite values with zero.
 
-# In[19]:
 
 
-# Replace NAs infinite values with zero
+
+# 替换NA空值为0, 替换无限值
 final_ratios = ratios.copy()
 final_ratios = final_ratios.fillna(0)
 final_ratios = final_ratios.replace(np.inf,0)
 
 
-# In[20]:
 
 
-final_ratios.head()
+
+print(f"替换空值后的数据: {final_ratios.head()}")
 
 
-# In[21]:
 
 
-final_ratios.tail()
+
+print(final_ratios.tail())
 
 
-# ## 4.5 Merge stock price data and ratios into one dataframe
+# ## 4.5 合并股票价格数据和 ratios into one dataframe
 # - Merge the price dataframe preprocessed in Part 3 and the ratio dataframe created in this part
 # - Since the prices are daily and ratios are quartely, we have NAs in the ratio columns after merging the two dataframes. We deal with this by backfilling the ratios.
 
-# In[22]:
+
 
 
 list_ticker = df["tic"].unique().tolist()
@@ -472,7 +451,7 @@ processed_full = processed_full.bfill(axis='rows')
 
 # ## 4.6 Calculate market valuation ratios using daily stock price data 
 
-# In[23]:
+
 
 
 # Calculate P/E, P/B and dividend yield using daily closing price
@@ -488,11 +467,12 @@ processed_full = processed_full.fillna(0)
 processed_full = processed_full.replace(np.inf,0)
 
 
-# In[24]:
+
 
 
 # Check the final data
-processed_full.sort_values(['date','tic'],ignore_index=True).head(10)
+head10 = processed_full.sort_values(['date','tic'],ignore_index=True).head(10)
+print(f"最终的数据: {head10}")
 
 
 # <a id='4'></a>
@@ -505,31 +485,22 @@ processed_full.sort_values(['date','tic'],ignore_index=True).head(10)
 # - Training data period: 2009-01-01 to 2019-01-01
 # - Trade data period: 2019-01-01 to 2020-12-31
 
-# In[25]:
 
 
+print(f"拆分数据集为训练和测试集")
 train_data = data_split(processed_full, '2009-01-01','2019-01-01')
 trade_data = data_split(processed_full, '2019-01-01','2021-01-01')
 # Check the length of the two datasets
-print(len(train_data))
-print(len(trade_data))
+print(f"训练集数量： {len(train_data)}")
+print(f"测试集数量: {len(trade_data)}")
+print(f"训练集数据: {train_data.head()}")
+print(f"测试集数据: {trade_data.head()}")
 
 
-# In[26]:
-
-
-train_data.head()
-
-
-# In[27]:
-
-
-trade_data.head()
 
 
 # ## 5.2 Set up the training environment
 
-# In[28]:
 
 
 import gym
@@ -1066,7 +1037,7 @@ print(type(env_train))
 # Multi-Agent DDPG, PPO, SAC, A2C and TD3. We also allow users to
 # design their own DRL algorithms by adapting these DRL algorithms.
 
-# In[32]:
+
 
 
 # Set up the agent using DRLAgent() class using the environment created in the previous part
@@ -1077,7 +1048,7 @@ agent = DRLAgent(env = env_train)
 
 # ### Model 1: PPO
 
-# In[33]:
+
 
 
 # agent = DRLAgent(env = env_train)
@@ -1090,7 +1061,7 @@ agent = DRLAgent(env = env_train)
 # model_ppo = agent.get_model("ppo",model_kwargs = PPO_PARAMS)
 
 
-# In[34]:
+
 
 
 # trained_ppo = agent.train_model(model=model_ppo, 
@@ -1100,14 +1071,14 @@ agent = DRLAgent(env = env_train)
 
 # ### Model 2: DDPG
 
-# In[35]:
+
 
 
 # agent = DRLAgent(env = env_train)
 # model_ddpg = agent.get_model("ddpg")
 
 
-# In[36]:
+
 
 
 # trained_ddpg = agent.train_model(model=model_ddpg, 
@@ -1118,7 +1089,7 @@ agent = DRLAgent(env = env_train)
 # ### Model 3: A2C
 # 
 
-# In[37]:
+
 
 
 agent = DRLAgent(env = env_train)
@@ -1199,7 +1170,7 @@ e_trade_gym = StockTradingEnv(df = trade_data, **env_kwargs)
 # In[44]:
 
 
-trade_data.head()
+print(f"测试集: {trade_data.head()}")
 
 
 # In[45]:
@@ -1231,7 +1202,7 @@ df_account_value_a2c, df_actions_a2c = DRLAgent.DRL_prediction(
 
 # df_account_value_ppo.shape
 # df_account_value_ddpg.shape
-df_account_value_a2c.shape
+print(df_account_value_a2c.shape)
 # df_account_value_td3.shape
 # df_account_value_sac.shape
 
@@ -1241,7 +1212,7 @@ df_account_value_a2c.shape
 
 # df_account_value_ppo.tail()
 # df_account_value_ddpg.tail()
-df_account_value_a2c.tail()
+print(df_account_value_a2c.tail())
 # df_account_value_td3.tail()
 # df_account_value_sac.tail()
 
@@ -1251,7 +1222,7 @@ df_account_value_a2c.tail()
 
 # df_actions_ppo.head()
 # df_actions_ddpg.head()
-df_actions_a2c.head()
+print(f"采取的交易细节是: {df_actions_a2c.head()}")
 # df_actions_td3.head()
 # df_actions_sac.head()
 
@@ -1317,7 +1288,7 @@ stats = backtest_stats(baseline_df, value_col_name = 'close')
 
 
 print("==============Compare to DJIA===========")
-get_ipython().run_line_magic('matplotlib', 'inline')
+# get_ipython().run_line_magic('matplotlib', 'inline')
 # S&P 500: ^GSPC
 # Dow Jones Index: ^DJI
 # NASDAQ 100: ^NDX
@@ -1348,7 +1319,6 @@ backtest_plot(df_account_value_a2c,
 #              baseline_end = '2021-01-01')
 
 
-# In[52]:
 
 
 
