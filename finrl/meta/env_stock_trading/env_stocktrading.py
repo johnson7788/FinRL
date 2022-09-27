@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
+import logging
 import gym
 import matplotlib
 import matplotlib.pyplot as plt
@@ -45,7 +46,6 @@ class StockTradingEnv(gym.Env):
         mode="",
         iteration="",
     ):
-        self.hmin = 100 # 最少买卖多少股
         self.day = day
         self.df = df
         self.stock_dim = stock_dim   #股票的数量
@@ -58,7 +58,7 @@ class StockTradingEnv(gym.Env):
         self.state_space = state_space   #状态空间大小261
         self.action_space = action_space  #动作空间26
         self.tech_indicator_list = tech_indicator_list   #['macd', 'boll_ub', 'boll_lb', 'rsi_30', 'cci_30', 'dx_30', 'close_30_sma', 'close_60_sma']
-        self.action_space = spaces.Box(low=-hmax, high=hmax, shape=(self.action_space,))
+        self.action_space = spaces.Box(low=-1, high=1, shape=(self.action_space,))
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(self.state_space,)
         )
@@ -294,21 +294,19 @@ class StockTradingEnv(gym.Env):
                 plt.close()
 
             # Add outputs to logger interface
-            # logger.record("environment/portfolio_value", end_total_asset)
-            # logger.record("environment/total_reward", tot_reward)
-            # logger.record("environment/total_reward_pct", (tot_reward / (end_total_asset - tot_reward)) * 100)
-            # logger.record("environment/total_cost", self.cost)
-            # logger.record("environment/total_trades", self.trades)
+            logging.info(f"environment/portfolio_value: {end_total_asset}")
+            logging.info(f"environment/total_reward: {tot_reward}")
+            logging.info(f"environment/total_reward_pct: {(tot_reward / (end_total_asset - tot_reward)) * 100}")
+            logging.info(f"environment/total_cost: {self.cost}")
+            logging.info(f"environment/total_trades: {self.trades}")
 
             return self.state, self.reward, self.terminal, {}
 
         else:
-            # actions = actions * self.hmax  # actions initially is scaled between 0 to 1
-            actions = actions.astype(int)  # 转换成整数，因为我们不能买带有小数的股票数量
-            # actions = actions/self.hmin  #不是100的整数的，也有弄成100的整数
-            # actions = actions.astype(int)
-            # actions = actions * self.hmin
-            # actions[actions < self.hmin] = self.hmin  # 更改actions的最小值
+            actions = actions * self.hmax  # actions initially is scaled between 0 to 1
+            actions = actions.astype(
+                int
+            )  # 转换成整数，因为我们不能买带有小数的股票数量
             if self.turbulence_threshold is not None:  #扰动过大时，卖出所有股票
                 if self.turbulence >= self.turbulence_threshold:
                     actions = np.array([-self.hmax] * self.stock_dim)

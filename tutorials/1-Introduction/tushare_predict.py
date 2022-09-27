@@ -270,7 +270,7 @@ if __name__ == '__main__':
     parser.add_argument('-et', '--end_train', default='2020-05-31', help='训练的结束时间')
     parser.add_argument('-se', '--start_test', default='2020-06-01', help='测试的开始时间')
     parser.add_argument('-ee', '--end_test', default='2022-05-31', help='测试的结束时间')
-    parser.add_argument('-t', '--timesteps', default=200000, help='训练的时间步')
+    parser.add_argument('-t', '--timesteps', type=int, default=200000, help='训练的时间步')
     parser.add_argument('-mi', '--mini', action='store_true', help='迷你数据集')
     args = parser.parse_args()
     # Step3 下载数据集
