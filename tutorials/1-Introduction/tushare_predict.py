@@ -13,7 +13,7 @@ import argparse
 from finrl.meta.preprocessor.yahoodownloader import YahooDownloader
 from finrl.meta.preprocessor.preprocessors import FeatureEngineer, data_split
 from finrl.meta.env_stock_trading.env_stocktrading import StockTradingEnv
-from finrl.agents.stablebaselines3.models import DRLAgent
+from finrl.agents.stablebaselines3.models import DRLAgent, DRLEnsembleAgent
 from finrl.meta.data_processor import DataProcessor
 
 from finrl.plot import backtest_stats, backtest_plot, get_daily_return, get_baseline
@@ -52,8 +52,8 @@ def prepare_dir():
     # 创建目录
     check_and_make_directories([DATA_SAVE_DIR, TRAINED_MODEL_DIR, TENSORBOARD_LOG_DIR, RESULTS_DIR])
 
-def download_data(TRAIN_START_DATE, TRADE_END_DATE, mini=False):
-    stock_data = get_daily_stock_and_indicator(TRAIN_START_DATE, TRADE_END_DATE, mini=mini)
+def download_data(TRAIN_START_DATE, TRADE_END_DATE, mini=False, stock_config={}):
+    stock_data = get_daily_stock_and_indicator(TRAIN_START_DATE, TRADE_END_DATE, mini=mini, stock_config=stock_config)
     # 变成pandas的dataframe, 新加一个空的pandas，然后把所有数据添加进去
     # 更改列名, ts_code --> tic, vol --> volume, trade_date ==>date
     stock_data.rename(columns={"ts_code": "tic", "vol": "volume", "trade_date": "date"}, inplace=True)
@@ -68,8 +68,14 @@ def preprocess_data(df):
     # * **添加技术指标**。在实际交易中，需要考虑到各种信息，如历史价格、当前持有的股票、技术指标等。在此，我们演示两个趋势跟踪的技术指标。MACD和RSI。
     # * **增加动荡指数**。风险规避反映了投资者是否倾向于保护资本。它也影响了一个人在面对不同市场波动水平时的交易策略。为了控制最坏情况下的风险，如2007-2008年的金融危机，FinRL采用了衡量资产价格极端波动的动荡指数。
     print(f"开始处理数据集, 数据集的形状是: {df.shape}")
-    processed_full = df.sort_values(['date','tic'])
-
+    fe = FeatureEngineer(
+        use_technical_indicator=False,
+        tech_indicator_list=[],
+        use_turbulence=True,
+        use_vix = False,
+        user_defined_feature=False)
+    processed = fe.preprocess_data(df)
+    processed_full = processed.sort_values(['date','tic'])
     #Step 5: 数据分割和在OpenAI Gym风格中建立一个市场环境
     # 训练过程包括观察股票价格变化，采取动作和奖励的计算。通过与市场环境的互动，agent最终会得出一个可能使（预期）回报最大化的交易策略。
     # # 我们的市场环境，基于OpenAI Gym，用历史市场数据模拟股票市场。
@@ -218,6 +224,73 @@ def sac(env_train, total_timesteps=30000):
                                     total_timesteps=total_timesteps)
     return trained_sac
 
+def ensemble_model(processed):
+    rebalance_window = 63  # rebalance_window 多少天重新训练一次模型
+    validation_window = 63  # validation_window 多少天进行一次验证 (e.g. if validation_window=63, then both validation and trading period will be 63 days)
+    train_start = TRAIN_START_DATE
+    train_end = TRAIN_END_DATE
+    val_test_start = TRADE_START_DATE
+    val_test_end = TRADE_END_DATE
+    new_env_kwargs = env_kwargs.copy()
+    new_env_kwargs.pop("num_stock_shares")
+    new_env_kwargs.pop("make_plots")
+    new_env_kwargs["print_verbosity"] = 5
+    # 需要的参数是一个数字，不是列表
+    new_env_kwargs["buy_cost_pct"] = new_env_kwargs["buy_cost_pct"][0]
+    new_env_kwargs["sell_cost_pct"] = new_env_kwargs["sell_cost_pct"][0]
+    # 组合的Agent
+    ensemble_agent = DRLEnsembleAgent(df=processed,
+                                      train_period=(train_start, train_end),
+                                      val_test_period=(val_test_start, val_test_end),
+                                      rebalance_window=rebalance_window,
+                                      validation_window=validation_window,
+                                      **new_env_kwargs)
+
+    A2C_model_kwargs = {
+        'n_steps': 5,
+        'ent_coef': 0.01,
+        'learning_rate': 0.0005
+    }
+
+    PPO_model_kwargs = {
+        "ent_coef": 0.01,
+        "n_steps": 2048,
+        "learning_rate": 0.00025,
+        "batch_size": 64
+    }
+
+    DDPG_model_kwargs = {
+        # "action_noise":"ornstein_uhlenbeck",
+        "buffer_size": 10_000,
+        "learning_rate": 0.0005,
+        "batch_size": 64
+    }
+
+    timesteps_dict = {'a2c': 10_000,
+                      'ppo': 10_000,
+                      'ddpg': 10_000
+                      }
+
+    df_summary = ensemble_agent.run_ensemble_strategy(A2C_model_kwargs,
+                                                      PPO_model_kwargs,
+                                                      DDPG_model_kwargs,
+                                                      timesteps_dict)
+    print(f"组合式训练的结果: ")
+    print(df_summary)
+    unique_trade_date = processed[(processed.date > val_test_start) & (processed.date <= val_test_end)].date.unique()
+    df_trade_date = pd.DataFrame({'datadate': unique_trade_date})
+
+    df_account_value = pd.DataFrame()
+    for i in range(rebalance_window + validation_window, len(unique_trade_date) + 1, rebalance_window):
+        temp = pd.read_csv('results/account_value_trade_{}_{}.csv'.format('ensemble', i))
+        df_account_value = df_account_value.append(temp, ignore_index=True)
+    sharpe = (252 ** 0.5) * df_account_value.account_value.pct_change(
+        1).mean() / df_account_value.account_value.pct_change(1).std()
+    print('Sharpe Ratio: ', sharpe)
+    df_account_value = df_account_value.join(df_trade_date[validation_window:].reset_index(drop=True))
+
+    print(f"打印账户金额: {df_account_value.head()}")
+    return df_account_value
 
 def trade_test_data(trained_model, trade, processed_full, env_kwargs):
     # 假设初始资本为1,000,000美元。
@@ -265,13 +338,15 @@ def backtest(df_account_value, result_file):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="强化学习预测")
-    parser.add_argument('-m', '--model', type=str, default="sac",choices=("sac","ppo","a2c","ddpg","td3","all") ,help='使用哪个模型进行训练')
+    parser.add_argument('-m', '--model', type=str, default="sac",choices=("sac","ppo","a2c","ddpg","td3","all", "ensemble") ,help='使用哪个模型进行训练')
     parser.add_argument('-st', '--start_train', default='2010-01-01', help='训练的开始时间')
     parser.add_argument('-et', '--end_train', default='2020-05-31', help='训练的结束时间')
     parser.add_argument('-se', '--start_test', default='2020-06-01', help='测试的开始时间')
     parser.add_argument('-ee', '--end_test', default='2022-05-31', help='测试的结束时间')
-    parser.add_argument('-t', '--timesteps', type=int, default=200000, help='训练的时间步')
+    parser.add_argument('-t', '--timesteps', type=int, default=30000, help='训练的时间步')
     parser.add_argument('-mi', '--mini', action='store_true', help='迷你数据集')
+    parser.add_argument('-so', '--stock_type',  type=str, default="growth", help='股票的类型，支持,growth,longtou')
+    parser.add_argument('-sn', '--stock_num', type=int, default=20, help='股票数量，默认20')
     args = parser.parse_args()
     # Step3 下载数据集
     TRAIN_START_DATE = args.start_train
@@ -282,7 +357,8 @@ if __name__ == '__main__':
     prepare_dir()
     print(f"训练日期是: {TRAIN_START_DATE} 到 {TRAIN_END_DATE}, 预测日期是: {TRADE_START_DATE} 到 {TRADE_END_DATE}")
     print(f"使用的模型是: {model}")
-    data_train = download_data(TRAIN_START_DATE, TRADE_END_DATE, mini=args.mini)
+    stock_config = {"stock_type": args.stock_type, "stock_num": args.stock_num}
+    data_train = download_data(TRAIN_START_DATE, TRADE_END_DATE, mini=args.mini, stock_config=stock_config)
     train_data, trade_data, processed_full = preprocess_data(data_train)
     env_train, env_kwargs = setup_env(train_data)
     if model == "sac":
@@ -312,6 +388,10 @@ if __name__ == '__main__':
             backtest(df_account_value, result_file=csv_file)
         print(f"结束所有模型的训练学习")
         sys.exit(0)
+    elif model == "ensemble":
+        print(f"进行组合式模型的训练")
+        df_account_value = ensemble_model(processed=processed_full)
+        sys.exit(0)
     else:
         print(f"不支持的模型,退出")
     df_account_value, df_actions = trade_test_data(trained_model=trained_model, trade=trade_data, processed_full=processed_full, env_kwargs=env_kwargs)
@@ -319,7 +399,5 @@ if __name__ == '__main__':
     now = datetime.datetime.now().strftime('%Y%m%d-%Hh%M')
     trade_action_file = f"action_{model}_{now}.xlsx"
     df_actions.to_excel(trade_action_file, index=False)
-    df_account_value_pkl_file = "cache/df_account_value.pkl"
-    df_account_value.to_pickle(df_account_value_pkl_file)
     csv_file = f"backtest_{model}_{now}.xlsx"
     backtest(df_account_value, result_file=csv_file)

@@ -216,31 +216,33 @@ class FeatureEngineer:
         return df
 
     def calculate_turbulence(self, data):
-        """计算湍流指标根据根据道琼斯平均指数30日值"""
+        """计算湍流指标根据根据道琼斯平均指数30日值
+        前start天数的，这里是252，即1年的交易日的湍流指标都是0
+        """
         # can add other market assets
         df = data.copy()
-        df_price_pivot = df.pivot(index="date", columns="tic", values="close")
-        # use returns to calculate turbulence
+        df_price_pivot = df.pivot(index="date", columns="tic", values="close")  #按天，股票收盘价和股票每天的价格获取数据
+        # use returns to calculate turbulence, 样本百分比变化，即每天的收盘价变化百分百
         df_price_pivot = df_price_pivot.pct_change()
-
+        # 所有日期
         unique_date = df.date.unique()
-        # start after a year
+        # 从一年后开始计算
         start = 252
         turbulence_index = [0] * start
         # turbulence_index = [0]
         count = 0
         for i in range(start, len(unique_date)):
             current_price = df_price_pivot[df_price_pivot.index == unique_date[i]]
-            # use one year rolling window to calcualte covariance
+            # 使用1年的滚动窗口计算方差
             hist_price = df_price_pivot[
                 (df_price_pivot.index < unique_date[i])
                 & (df_price_pivot.index >= unique_date[i - 252])
             ]
-            # Drop tickers which has number missing values more than the "oldest" ticker
+            # 删除股票其中数值丢失，比最"oldest" 的股票
             filtered_hist_price = hist_price.iloc[
                 hist_price.isna().sum().min() :
             ].dropna(axis=1)
-
+            # 计算协方差
             cov_temp = filtered_hist_price.cov()
             current_temp = current_price[[x for x in filtered_hist_price]] - np.mean(
                 filtered_hist_price, axis=0

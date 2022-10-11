@@ -101,8 +101,6 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-# In[2]:
-
 
 import pandas as pd
 import numpy as np
