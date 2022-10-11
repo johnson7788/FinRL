@@ -90,17 +90,17 @@ class FeatureEngineer:
         # add vix for multiple stock
         if self.use_vix:
             df = self.add_vix(df)
-            print("Successfully added vix")
+            print("成功添加了vix 指数")
 
         # add turbulence index for multiple stock
         if self.use_turbulence:
             df = self.add_turbulence(df)
-            print("Successfully added turbulence index")
+            print("成功的添加了turbulence 指数")
 
         # add user defined feature
         if self.user_defined_feature:
             df = self.add_user_defined_feature(df)
-            print("Successfully added user defined features")
+            print("成功添加了用户的自定义特征")
 
         # fill the missing values at the beginning and the end
         df = df.fillna(method="ffill").fillna(method="bfill")
@@ -216,7 +216,7 @@ class FeatureEngineer:
         return df
 
     def calculate_turbulence(self, data):
-        """calculate turbulence index based on dow 30"""
+        """计算湍流指标根据根据道琼斯平均指数30日值"""
         # can add other market assets
         df = data.copy()
         df_price_pivot = df.pivot(index="date", columns="tic", values="close")

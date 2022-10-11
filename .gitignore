@@ -149,3 +149,5 @@ alpaca_processor_test.py
 tutorials/1-Introduction/cache/
 tutorials/1-Introduction/token_file.py
 *.log
+tutorials/2-Advance/cache/
+*.pkl
