@@ -289,8 +289,9 @@ def ensemble_model(processed):
     print('Sharpe Ratio: ', sharpe)
     df_account_value = df_account_value.join(df_trade_date[validation_window:].reset_index(drop=True))
 
-    print(f"打印账户金额: {df_account_value.head()}")
-    return df_account_value
+    print(f"打印账户金额开始日期: {df_account_value.head()}")
+    print(f"打印账户金额结束日期: {df_account_value.tail()}")
+    return df_account_value, df_summary
 
 def trade_test_data(trained_model, trade, processed_full, env_kwargs):
     # 假设初始资本为1,000,000美元。
@@ -390,10 +391,15 @@ if __name__ == '__main__':
         sys.exit(0)
     elif model == "ensemble":
         print(f"进行组合式模型的训练")
-        df_account_value = ensemble_model(processed=processed_full)
+        df_account_value, df_summary = ensemble_model(processed=processed_full)
+        # 缓存df_account_value到本地
+        now = datetime.datetime.now().strftime('%Y%m%d-%Hh%M')
+        csv_file = f"backtest_{model}_{now}.xlsx"
+        backtest(df_account_value, result_file=csv_file)
         sys.exit(0)
     else:
         print(f"不支持的模型,退出")
+        sys.exit(0)
     df_account_value, df_actions = trade_test_data(trained_model=trained_model, trade=trade_data, processed_full=processed_full, env_kwargs=env_kwargs)
     # 缓存df_account_value到本地
     now = datetime.datetime.now().strftime('%Y%m%d-%Hh%M')
