@@ -104,7 +104,6 @@ from pprint import pprint
 
 import itertools
 
-
 # <a id='1.4'></a>
 # ## 2.4. Create Folders
 
@@ -266,7 +265,7 @@ fund_data = fund_data.rename(columns={
 
 
 
-# Check the data
+# Check the data, 财务指标是每个季度的
 print(f"重新检查下数据: {fund_data.head()}")
 
 
